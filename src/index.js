@@ -11,28 +11,31 @@ import {
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { registerLogHandlers } from './logs/registerLogs.js';
 
-// --- chemins
+// ---------- chemins ----------
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const commandsPath = path.join(__dirname, 'commands');
 
-// --- client (intents pour /infos + statuts)
+// ---------- client ----------
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,          // base
     GatewayIntentBits.GuildMembers,    // /infos (rôles, join date)
-    GatewayIntentBits.GuildPresences,  // /infos (statut online/idle/dnd)
+    GatewayIntentBits.GuildPresences,  // /infos (statut)
+    // ⚠️ décommente si tu veux logguer le contenu des messages supprimés/édités
+    // GatewayIntentBits.MessageContent,
   ],
 });
 
-// --- registres
+// ---------- registres ----------
 client.commands = new Collection();
 const buttonHandlers = new Map(); // prefix -> (interaction, parts[]) => Promise<void>
 const modalHandlers  = new Map(); // prefix -> (interaction, parts[]) => Promise<void>
 const selectHandlers = new Map(); // prefix -> (interaction, parts[]) => Promise<void>
 
-// --- chargement dynamique des commandes
+// ---------- chargement dynamique des commandes ----------
 async function loadCommands() {
   client.commands.clear();
   buttonHandlers.clear();
@@ -50,22 +53,22 @@ async function loadCommands() {
     }
     client.commands.set(mod.data.name, mod);
 
-    // bouton
+    // Boutons
     if (mod.customIdPrefix && typeof mod.handleButton === 'function') {
       buttonHandlers.set(mod.customIdPrefix, mod.handleButton);
     }
-    // modal
+    // Modals
     if (mod.modalPrefix && typeof mod.handleModal === 'function') {
       modalHandlers.set(mod.modalPrefix, mod.handleModal);
     }
-    // select menu (string select)
+    // Menus déroulants (StringSelect)
     if (mod.customIdPrefix && typeof mod.handleSelect === 'function') {
       selectHandlers.set(mod.customIdPrefix, mod.handleSelect);
     }
   }
 }
 
-// --- déploiement des slash commands (guilde)
+// ---------- déploiement des slash commands (guilde) ----------
 async function deployGuildCommands() {
   const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
 
@@ -85,10 +88,15 @@ async function deployGuildCommands() {
   console.log('✅ Commandes déployées (guild).');
 }
 
-// --- cycle de vie
+// ---------- cycle de vie ----------
 client.once(Events.ClientReady, async (c) => {
   console.log(`✅ Connecté comme ${c.user.tag}`);
   await loadCommands();
+
+  // Active les handlers de logs
+  registerLogHandlers(client);
+
+  // Auto-déploiement (met AUTO_DEPLOY=false dans .env pour désactiver)
   if (process.env.AUTO_DEPLOY !== 'false') {
     try { await deployGuildCommands(); } catch (e) { console.error('❌ Déploiement :', e); }
   }
@@ -104,7 +112,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       return await handler(interaction, parts);
     }
 
-    // ✅ MENUS DÉROULANTS (String Select)
+    // ✅ Menus déroulants (String Select)
     if (interaction.isStringSelectMenu()) {
       const [prefix, ...parts] = interaction.customId.split(':');
       const handler = selectHandlers.get(prefix);
