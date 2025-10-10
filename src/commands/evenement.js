@@ -18,11 +18,11 @@ const MPREFIX = 'eventmodal';  // modals
 // Sessions: tempId -> { channelId, requesterId, eventKey?, draft? }
 const sessions = new Map();
 
-// --- Catalogue avec couleurs harmonisées ---
+// --- Catalogue avec couleurs ---
 const EVENTS = {
   amongus:    { label: 'Among US',       emoji: '🧑‍🚀', color: '#ff6b6b' },
   dnd:        { label: 'Dale & Dawnson', emoji: '🕵️',   color: '#f7b267' }, // ajuste le nom exact si besoin
-  microworks: { label: 'MicroWorks',     emoji: '🧪',    color: '#6bcBef' },
+  microworks: { label: 'MicroWorks',     emoji: '🧪',    color: '#6bcBEf' },
   valorant:   { label: 'Valorant',       emoji: '🎯',    color: '#8b5cf6' },
 };
 
@@ -109,7 +109,7 @@ function isValidHttpUrl(u) {
   catch { return false; }
 }
 
-// ---------- Embed (visuel amélioré) ----------
+// ---------- Embed (visuel) ----------
 function makeEventEmbed({ eventKey, title, dateTs, dateInput, hourInput, imageUrl, creator, publishChannelId }) {
   const meta = EVENTS[eventKey] ?? { label: 'Évènement', emoji: '📅', color: '#5865F2' };
   const color = meta.color || '#5865F2';
@@ -126,7 +126,7 @@ function makeEventEmbed({ eventKey, title, dateTs, dateInput, hourInput, imageUr
       ].join('\n')
     )
     .addFields(
-      { name: '🗓️ Quand', value: dateTs ? `**<t:${dateTs}:F>**\n< t:${dateTs}:R >`.replace(' ', '') : `**${dateInput} ${hourInput}**`, inline: true },
+      { name: '🗓️ Quand', value: dateTs ? `**<t:${dateTs}:F>**\n<t:${dateTs}:R>` : `**${dateInput} ${hourInput}**`, inline: true },
       { name: '🔖 Type',  value: `**${meta.label}**`, inline: true },
     )
     .setFooter({ text: `Créé par ${creator.tag}` })
@@ -239,11 +239,22 @@ export default {
       if (!sess.draft || !sess.eventKey)
         return interaction.reply({ content: 'Aucun brouillon à publier.', ephemeral: true });
 
+      const publishChannelId = (payload === 'selected') ? sess.channelId : interaction.channelId;
+
+      // Vérif permissions si "ici"
+      if (payload === 'here') {
+        const me = interaction.guild.members.me;
+        const canSendHere = interaction.channel?.permissionsFor?.(me)?.has?.(['ViewChannel', 'SendMessages', 'EmbedLinks']);
+        if (!canSendHere) {
+          return interaction.reply({ content: "❌ Je ne peux pas publier ici (permissions manquantes).", ephemeral: true });
+        }
+      }
+
       const embed = makeEventEmbed({
         ...sess.draft,
         eventKey: sess.eventKey,
         creator: interaction.user,
-        // (ici on peut omettre publishChannelId dans l’embed final si tu veux)
+        publishChannelId,
       });
 
       try {
