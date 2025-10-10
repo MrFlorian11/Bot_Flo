@@ -1,6 +1,7 @@
 // src/commands/evenement.js
 import {
   SlashCommandBuilder,
+  StringSelectMenuBuilder,
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
@@ -11,36 +12,39 @@ import {
   ChannelType,
 } from 'discord.js';
 
-const PREFIX = 'event';        // boutons
-const MPREFIX = 'eventmodal';  // modals
+const PREFIX = 'event';
+const MPREFIX = 'eventmodal';
 
 // Sessions: tempId -> { channelId, requesterId, eventKey?, draft? }
 const sessions = new Map();
 
-// Catalogue
+// --- Évènements ---
 const EVENTS = {
   amongus:    { label: 'Among US',       emoji: '🧑‍🚀' },
-  dnd:        { label: 'Dale & Dawnson', emoji: '🕵️' }, // ajuste le nom exact si besoin
+  dnd:        { label: 'Dale & Dawnson', emoji: '🕵️' },
   microworks: { label: 'MicroWorks',     emoji: '🧪' },
   valorant:   { label: 'Valorant',       emoji: '🎯' },
 };
 
-// ---- UI builders ----
-function makePicker(tempId) {
-  return [
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(`${PREFIX}:${tempId}:choose:amongus`).setLabel(`${EVENTS.amongus.emoji} ${EVENTS.amongus.label}`).setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId(`${PREFIX}:${tempId}:choose:dnd`).setLabel(`${EVENTS.dnd.emoji} ${EVENTS.dnd.label}`).setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId(`${PREFIX}:${tempId}:choose:microworks`).setLabel(`${EVENTS.microworks.emoji} ${EVENTS.microworks.label}`).setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId(`${PREFIX}:${tempId}:choose:valorant`).setLabel(`${EVENTS.valorant.emoji} ${EVENTS.valorant.label}`).setStyle(ButtonStyle.Primary),
-    ),
-  ];
+// --- UI Builders ---
+function makeSelectMenu(tempId) {
+  const select = new StringSelectMenuBuilder()
+    .setCustomId(`${PREFIX}:${tempId}:choose`)
+    .setPlaceholder('Choisis un évènement...')
+    .addOptions(Object.entries(EVENTS).map(([key, ev]) => ({
+      label: ev.label,
+      value: key,
+      emoji: ev.emoji,
+    })));
+
+  return [new ActionRowBuilder().addComponents(select)];
 }
 
 function buildModal(tempId, eventKey, draft = {}) {
   const meta = EVENTS[eventKey];
   const defTitle = draft.title ?? meta?.label ?? 'Évènement';
-  const defDate  = draft.dateInput ?? ''; // ex: 31/10/2025 21:00
+  const defDate  = draft.dateInput ?? ''; // ex: 31/10/2025
+  const defHour  = draft.hourInput ?? ''; // ex: 21:00
   const defImg   = draft.imageUrl ?? '';
 
   const modal = new ModalBuilder()
@@ -57,15 +61,23 @@ function buildModal(tempId, eventKey, draft = {}) {
 
   const dateInput = new TextInputBuilder()
     .setCustomId('date')
-    .setLabel("Date & heure (ex: 31/10/2025 21:00)")
+    .setLabel('Date (ex: 31/10/2025)')
     .setStyle(TextInputStyle.Short)
     .setRequired(true)
-    .setPlaceholder('JJ/MM[/AAAA] HH:mm ou AAAA-MM-JJ HH:mm')
+    .setPlaceholder('JJ/MM/AAAA')
     .setValue(defDate);
+
+  const hourInput = new TextInputBuilder()
+    .setCustomId('hour')
+    .setLabel('Heure (ex: 21:00)')
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true)
+    .setPlaceholder('HH:mm')
+    .setValue(defHour);
 
   const imgInput = new TextInputBuilder()
     .setCustomId('image')
-    .setLabel("Image (URL, optionnel)")
+    .setLabel('Image (URL, optionnel)')
     .setStyle(TextInputStyle.Short)
     .setRequired(false)
     .setPlaceholder('https://exemple.com/image.png')
@@ -74,8 +86,10 @@ function buildModal(tempId, eventKey, draft = {}) {
   modal.addComponents(
     new ActionRowBuilder().addComponents(titleInput),
     new ActionRowBuilder().addComponents(dateInput),
+    new ActionRowBuilder().addComponents(hourInput),
     new ActionRowBuilder().addComponents(imgInput),
   );
+
   return modal;
 }
 
@@ -92,36 +106,15 @@ function makePreviewButtons(tempId) {
   ];
 }
 
-// ---- Date parsing ----
-// Accepte : "DD/MM HH:mm" (année courante), "DD/MM/YYYY HH:mm", "YYYY-MM-DD HH:mm"
-// Timezone: utilise le fuseau du serveur (ou définis TZ=Europe/Paris dans l’environnement)
-function parseDateTime(input) {
-  const s = input.trim();
-  const now = new Date();
+// --- Parse date & heure séparées ---
+function parseDateTime(dateStr, timeStr) {
+  const [d, m, y] = dateStr.split(/[\/\-]/).map(x => parseInt(x));
+  const [hh, mm] = timeStr.split(':').map(x => parseInt(x));
+  if (!d || !m || !hh || isNaN(hh) || isNaN(mm)) return null;
 
-  // DD/MM HH:mm
-  let m = s.match(/^(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})$/);
-  if (m) {
-    let [_, d, mo, hh, mm] = m;
-    const year = now.getFullYear();
-    return new Date(year, parseInt(mo) - 1, parseInt(d), parseInt(hh), parseInt(mm));
-  }
-
-  // DD/MM/YYYY HH:mm
-  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})$/);
-  if (m) {
-    let [_, d, mo, y, hh, mm] = m;
-    return new Date(parseInt(y), parseInt(mo) - 1, parseInt(d), parseInt(hh), parseInt(mm));
-  }
-
-  // YYYY-MM-DD HH:mm
-  m = s.match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}):(\d{2})$/);
-  if (m) {
-    let [_, y, mo, d, hh, mm] = m;
-    return new Date(parseInt(y), parseInt(mo) - 1, parseInt(d), parseInt(hh), parseInt(mm));
-  }
-
-  return null;
+  const year = y || new Date().getFullYear();
+  const dt = new Date(year, m - 1, d, hh, mm);
+  return isNaN(dt.getTime()) ? null : dt;
 }
 
 function isValidHttpUrl(u) {
@@ -131,25 +124,23 @@ function isValidHttpUrl(u) {
   } catch { return false; }
 }
 
-function makeEventEmbed({ eventKey, title, dateTs, dateInput, imageUrl, creator }) {
+function makeEventEmbed({ eventKey, title, dateTs, dateInput, hourInput, imageUrl, creator }) {
   const meta = EVENTS[eventKey] ?? { label: 'Évènement', emoji: '📅' };
   const embed = new EmbedBuilder()
     .setColor('#5865F2')
     .setTitle(`${meta.emoji} ${title}`)
     .addFields(
       { name: '🗓️ Évènement', value: `**${meta.label}**`, inline: true },
-      { name: '⏰ Quand', value: dateTs ? `**<t:${dateTs}:F>**\n< t:${dateTs}:R >`.replace(' ', '') : `**${dateInput}**`, inline: true },
+      { name: '📅 Date & heure', value: dateTs ? `**<t:${dateTs}:F>**\n< t:${dateTs}:R >`.replace(' ', '') : `**${dateInput} ${hourInput}**`, inline: true },
     )
     .setFooter({ text: `Créé par ${creator.tag}` })
     .setTimestamp();
 
-  if (imageUrl && isValidHttpUrl(imageUrl)) {
-    embed.setImage(imageUrl);
-  }
+  if (imageUrl && isValidHttpUrl(imageUrl)) embed.setImage(imageUrl);
   return embed;
 }
 
-// ============== Commande ==============
+// ========== COMMANDE ==========
 export default {
   customIdPrefix: PREFIX,
   modalPrefix: MPREFIX,
@@ -165,68 +156,44 @@ export default {
     )
     .setDMPermission(false),
 
-  // 1) Slash → affiche les 4 boutons en éphémère
+  // Slash → menu déroulant
   async execute(interaction) {
     const channel = interaction.options.getChannel('salon', true);
     const me = interaction.guild.members.me;
     const canSend = channel?.permissionsFor?.(me)?.has?.(['ViewChannel', 'SendMessages', 'EmbedLinks']);
-    if (!canSend) {
+    if (!canSend)
       return interaction.reply({ content: "❌ Je n'ai pas la permission d’envoyer un message dans ce salon.", ephemeral: true });
-    }
 
     const tempId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    sessions.set(tempId, {
-      channelId: channel.id,
-      requesterId: interaction.user.id,
-      draft: null,
-    });
+    sessions.set(tempId, { channelId: channel.id, requesterId: interaction.user.id, draft: null });
     setTimeout(() => sessions.delete(tempId), 10 * 60 * 1000);
 
-    await interaction.reply({
-      content: 'Choisis un évènement :',
-      components: makePicker(tempId),
-      ephemeral: true,
-    });
+    await interaction.reply({ content: 'Choisis un évènement :', components: makeSelectMenu(tempId), ephemeral: true });
   },
 
-  // 2) Bouton évènement → ouvre modal
+  // Sélection → ouvre modal
   async handleButton(interaction, parts) {
-    const [tempId, kind, payload] = parts;
+    const [tempId, kind, eventKey] = parts;
     const sess = sessions.get(tempId);
     if (!sess) return interaction.reply({ content: 'Session expirée. Relance `/evenement`.', ephemeral: true });
-    if (interaction.user.id !== sess.requesterId) return interaction.reply({ content: "Seul l'auteur de la commande peut continuer.", ephemeral: true });
+    if (interaction.user.id !== sess.requesterId)
+      return interaction.reply({ content: "Seul l'auteur de la commande peut continuer.", ephemeral: true });
 
-    // Choix évènement
-    if (kind === 'choose') {
-      const eventKey = payload;
-      if (!EVENTS[eventKey]) return interaction.reply({ content: 'Sélection invalide.', ephemeral: true });
-      sess.eventKey = eventKey;
-      const modal = buildModal(tempId, eventKey, sess.draft ?? {});
-      return interaction.showModal(modal);
-    }
-
-    // Publication depuis la preview
+    // Publication
     if (kind === 'publish') {
-      if (!sess.draft || !sess.eventKey) return interaction.reply({ content: 'Pas de brouillon à publier.', ephemeral: true });
-      const where = payload; // 'selected' | 'here'
-      const embed = makeEventEmbed({ ...sess.draft, eventKey: sess.eventKey, creator: interaction.user });
+      if (!sess.draft || !sess.eventKey)
+        return interaction.reply({ content: 'Aucun brouillon à publier.', ephemeral: true });
 
+      const embed = makeEventEmbed({ ...sess.draft, eventKey: sess.eventKey, creator: interaction.user });
+      const where = eventKey;
       try {
         if (where === 'selected') {
           const ch = await interaction.client.channels.fetch(sess.channelId);
           await ch.send({ content: '@everyone', embeds: [embed], allowedMentions: { parse: ['everyone'] } });
           await interaction.reply({ content: '✅ Évènement publié dans le salon choisi.', ephemeral: true });
         } else if (where === 'here') {
-          // vérifier permissions ici
-          const me = interaction.guild.members.me;
-          const canSendHere = interaction.channel?.permissionsFor?.(me)?.has?.(['ViewChannel', 'SendMessages', 'EmbedLinks']);
-          if (!canSendHere) {
-            return interaction.reply({ content: "❌ Je ne peux pas publier ici (permissions manquantes).", ephemeral: true });
-          }
           await interaction.channel.send({ content: '@everyone', embeds: [embed], allowedMentions: { parse: ['everyone'] } });
           await interaction.reply({ content: '✅ Évènement publié ici.', ephemeral: true });
-        } else {
-          return interaction.reply({ content: 'Action inconnue.', ephemeral: true });
         }
       } catch (e) {
         console.error(e);
@@ -237,61 +204,59 @@ export default {
       return;
     }
 
-    // Modifier (rouvrir le modal avec valeurs précédentes)
     if (kind === 'edit') {
       if (!sess.eventKey) return interaction.reply({ content: 'Aucun évènement sélectionné.', ephemeral: true });
       const modal = buildModal(tempId, sess.eventKey, sess.draft ?? {});
       return interaction.showModal(modal);
     }
 
-    // Annuler
     if (kind === 'cancel') {
       sessions.delete(tempId);
       return interaction.update({ content: '❌ Évènement annulé.', components: [], ephemeral: true }).catch(() => {});
     }
-
-    return interaction.reply({ content: 'Action inconnue.', ephemeral: true });
   },
 
-  // 3) Modal submit → enregistrer brouillon et afficher la PREVIEW
+  // Menu sélection → ouvrir modal
+  async handleSelect(interaction, parts) {
+    const [tempId, action] = parts;
+    const sess = sessions.get(tempId);
+    if (!sess) return interaction.reply({ content: 'Session expirée.', ephemeral: true });
+    if (interaction.user.id !== sess.requesterId)
+      return interaction.reply({ content: "Seul l'auteur de la commande peut continuer.", ephemeral: true });
+
+    const selected = interaction.values?.[0];
+    if (!selected || !EVENTS[selected])
+      return interaction.reply({ content: 'Évènement invalide.', ephemeral: true });
+
+    sess.eventKey = selected;
+    const modal = buildModal(tempId, selected, sess.draft ?? {});
+    await interaction.showModal(modal);
+  },
+
+  // Modal → preview
   async handleModal(interaction, parts) {
     const [tempId, eventKey] = parts;
     const sess = sessions.get(tempId);
-    if (!sess || interaction.user.id !== sess.requesterId) {
-      return interaction.reply({ content: 'Session expirée ou invalide.', ephemeral: true });
-    }
-    if (!EVENTS[eventKey]) {
-      return interaction.reply({ content: 'Évènement inconnu.', ephemeral: true });
-    }
+    if (!sess || interaction.user.id !== sess.requesterId)
+      return interaction.reply({ content: 'Session expirée.', ephemeral: true });
 
-    // Récup champs
-    const title = interaction.fields.getTextInputValue('title')?.trim() || EVENTS[eventKey].label;
-    const dateInput = interaction.fields.getTextInputValue('date')?.trim() || '';
-    const imageUrl = (interaction.fields.getTextInputValue('image')?.trim() || '');
+    const title = interaction.fields.getTextInputValue('title')?.trim();
+    const dateInput = interaction.fields.getTextInputValue('date')?.trim();
+    const hourInput = interaction.fields.getTextInputValue('hour')?.trim();
+    const imageUrl = interaction.fields.getTextInputValue('image')?.trim();
 
-    // Parse date
-    const dateObj = parseDateTime(dateInput);
-    if (!dateObj || isNaN(dateObj.getTime())) {
-      // pas valide → message d’erreur + garder session
+    const dateObj = parseDateTime(dateInput, hourInput);
+    if (!dateObj)
       return interaction.reply({
-        content: "❌ Format de date invalide.\nFormats acceptés : `JJ/MM HH:mm`, `JJ/MM/AAAA HH:mm`, `AAAA-MM-JJ HH:mm`",
+        content: "❌ Format de date/heure invalide. (Ex: `31/10/2025 21:00`)",
         ephemeral: true,
       });
-    }
+
     const unix = Math.floor(dateObj.getTime() / 1000);
 
-    // Enregistrer le brouillon
-    sess.draft = { title, dateInput, dateTs: unix, imageUrl };
+    sess.draft = { title, dateInput, hourInput, dateTs: unix, imageUrl };
 
-    // Construire preview
-    const embed = makeEventEmbed({ eventKey, title, dateTs: unix, dateInput, imageUrl, creator: interaction.user });
-
-    // Si on vient d’un modal, on ne peut pas *edit* immédiatement la réponse initiale → on reply éphémère
-    await interaction.reply({
-      content: 'Aperçu :',
-      embeds: [embed],
-      components: makePreviewButtons(tempId),
-      ephemeral: true,
-    });
+    const embed = makeEventEmbed({ eventKey, title, dateTs: unix, dateInput, hourInput, imageUrl, creator: interaction.user });
+    await interaction.reply({ content: 'Aperçu :', embeds: [embed], components: makePreviewButtons(tempId), ephemeral: true });
   },
 };
