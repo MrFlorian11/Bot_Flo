@@ -100,9 +100,16 @@ function parseDateTime(dateStr, timeStr) {
   const [hh, mm]  = (timeStr || '').split(':').map(x => parseInt(x));
   if (!d || !m || isNaN(hh) || isNaN(mm)) return null;
   const year = y || new Date().getFullYear();
-  const dt = new Date(year, m - 1, d, hh, mm);
-  return isNaN(dt.getTime()) ? null : dt;
+
+  // Création en local
+  const local = new Date(year, m - 1, d, hh, mm);
+
+  // Conversion en UTC (corrige le décalage du fuseau)
+  const utc = new Date(local.getTime() - local.getTimezoneOffset() * 60000);
+
+  return isNaN(utc.getTime()) ? null : utc;
 }
+
 
 function isValidHttpUrl(u) {
   try { const url = new URL(u); return url.protocol === 'http:' || url.protocol === 'https:'; }
