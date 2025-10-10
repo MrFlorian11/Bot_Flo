@@ -11,9 +11,11 @@ import {
   TextInputStyle,
   ChannelType,
 } from 'discord.js';
+import { DateTime } from 'luxon';
 
 const PREFIX  = 'event';       // boutons & select
 const MPREFIX = 'eventmodal';  // modals
+const EVENT_TZ = process.env.EVENT_TZ || 'Europe/Paris'; // <- ton fuseau
 
 // Sessions: tempId -> { channelId, requesterId, eventKey?, draft? }
 const sessions = new Map();
@@ -21,8 +23,8 @@ const sessions = new Map();
 // --- Catalogue avec couleurs ---
 const EVENTS = {
   amongus:    { label: 'Among US',       emoji: '🧑‍🚀', color: '#ff6b6b' },
-  dnd:        { label: 'Dale & Dawnson', emoji: '🕵️',   color: '#f7b267' }, // ajuste le nom exact si besoin
-  microworks: { label: 'MicroWorks',     emoji: '🧪',    color: '#6bcBEf' },
+  dnd:        { label: 'Dale & Dawnson', emoji: '🕵️',   color: '#f7b267' }, // ajuste le nom si besoin
+  microworks: { label: 'MicroWorks',     emoji: '🧪',    color: '#6bcbef' },
   valorant:   { label: 'Valorant',       emoji: '🎯',    color: '#8b5cf6' },
 };
 
@@ -94,22 +96,25 @@ function makePreviewButtons(tempId) {
   ];
 }
 
-// ---------- Parse date & heure séparées ----------
-function parseDateTime(dateStr, timeStr) {
-  const [d, m, y] = (dateStr || '').split(/[\/\-]/).map(x => parseInt(x));
-  const [hh, mm]  = (timeStr || '').split(':').map(x => parseInt(x));
-  if (!d || !m || isNaN(hh) || isNaN(mm)) return null;
-  const year = y || new Date().getFullYear();
+// ---------- Parse date & heure (avec fuseau) ----------
+/**
+ * Retourne le timestamp UNIX (secondes) en UTC à partir de date/heure interprétées
+ * dans la zone EVENT_TZ (gère l’heure d’été/hiver).
+ */
+function parseToUnix(dateStr, timeStr) {
+  const [d, m, y] = (dateStr || '').split(/[\/\-]/).map(Number);
+  const [hh, mm]  = (timeStr || '').split(':').map(Number);
+  const nowZone = DateTime.now().setZone(EVENT_TZ);
 
-  // Création en local
-  const local = new Date(year, m - 1, d, hh, mm);
+  const year = y || nowZone.year;
+  const dt = DateTime.fromObject(
+    { year, month: m, day: d, hour: hh, minute: mm },
+    { zone: EVENT_TZ }
+  );
 
-  // Conversion en UTC (corrige le décalage du fuseau)
-  const utc = new Date(local.getTime() - local.getTimezoneOffset() * 60000);
-
-  return isNaN(utc.getTime()) ? null : utc;
+  if (!dt.isValid) return null;
+  return Math.floor(dt.toUTC().toSeconds()); // seconds (UTC)
 }
-
 
 function isValidHttpUrl(u) {
   try { const url = new URL(u); return url.protocol === 'http:' || url.protocol === 'https:'; }
@@ -205,11 +210,9 @@ export default {
     const hourInput = interaction.fields.getTextInputValue('hour')?.trim();
     const imageUrl  = interaction.fields.getTextInputValue('image')?.trim();
 
-    const dateObj = parseDateTime(dateInput, hourInput);
-    if (!dateObj)
+    const unix = parseToUnix(dateInput, hourInput);
+    if (unix == null)
       return interaction.reply({ content: "❌ Format de date/heure invalide. (ex: `31/10/2025` & `21:00`)", ephemeral: true });
-
-    const unix = Math.floor(dateObj.getTime() / 1000);
 
     // sauvegarde du brouillon (pour Modifier)
     sess.draft = { title, dateInput, hourInput, dateTs: unix, imageUrl };
