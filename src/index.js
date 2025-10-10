@@ -13,29 +13,29 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { registerLogHandlers } from './logs/registerLogs.js';
 
-// ---------- chemins ----------
+// ---------- RÉSOLUTIONS DE CHEMINS ----------
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const commandsPath = path.join(__dirname, 'commands');
 
-// ---------- client ----------
+// ---------- CLIENT DISCORD ----------
 const client = new Client({
   intents: [
-    GatewayIntentBits.Guilds,          // base
-    GatewayIntentBits.GuildMembers,    // /infos (rôles, join date)
-    GatewayIntentBits.GuildPresences,  // /infos (statut)
-    // ⚠️ décommente si tu veux logguer le contenu des messages supprimés/édités
-    // GatewayIntentBits.MessageContent,
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent, // 🔥 Nécessaire pour logs message_delete / edit
+    GatewayIntentBits.GuildVoiceStates,
   ],
 });
 
-// ---------- registres ----------
+// ---------- COLLECTIONS ----------
 client.commands = new Collection();
-const buttonHandlers = new Map(); // prefix -> (interaction, parts[]) => Promise<void>
-const modalHandlers  = new Map(); // prefix -> (interaction, parts[]) => Promise<void>
-const selectHandlers = new Map(); // prefix -> (interaction, parts[]) => Promise<void>
+const buttonHandlers = new Map();
+const modalHandlers  = new Map();
+const selectHandlers = new Map();
 
-// ---------- chargement dynamique des commandes ----------
+// ---------- CHARGEMENT DES COMMANDES ----------
 async function loadCommands() {
   client.commands.clear();
   buttonHandlers.clear();
@@ -48,31 +48,33 @@ async function loadCommands() {
     const mod = (await import(`file://${filePath}`)).default;
 
     if (!mod?.data || !mod?.execute) {
-      console.warn(`⚠️  ${file} ignoré: export "data" ou "execute" manquant.`);
+      console.warn(`⚠️  ${file} ignoré : export "data" ou "execute" manquant.`);
       continue;
     }
+
     client.commands.set(mod.data.name, mod);
 
-    // Boutons
-    if (mod.customIdPrefix && typeof mod.handleButton === 'function') {
+    // 🔹 Boutons
+    if (mod.customIdPrefix && typeof mod.handleButton === 'function')
       buttonHandlers.set(mod.customIdPrefix, mod.handleButton);
-    }
-    // Modals
-    if (mod.modalPrefix && typeof mod.handleModal === 'function') {
+
+    // 🔹 Modals
+    if (mod.modalPrefix && typeof mod.handleModal === 'function')
       modalHandlers.set(mod.modalPrefix, mod.handleModal);
-    }
-    // Menus déroulants (StringSelect)
-    if (mod.customIdPrefix && typeof mod.handleSelect === 'function') {
+
+    // 🔹 Menus déroulants (String Select)
+    if (mod.customIdPrefix && typeof mod.handleSelect === 'function')
       selectHandlers.set(mod.customIdPrefix, mod.handleSelect);
-    }
   }
+
+  console.log(`✅ ${client.commands.size} commandes chargées.`);
 }
 
-// ---------- déploiement des slash commands (guilde) ----------
+// ---------- DÉPLOIEMENT DES COMMANDES ----------
 async function deployGuildCommands() {
   const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
-
   const files = fs.readdirSync(commandsPath).filter(f => f.endsWith('.js'));
+
   const payload = [];
   for (const file of files) {
     const filePath = path.join(commandsPath, file);
@@ -80,69 +82,75 @@ async function deployGuildCommands() {
     if (mod?.data) payload.push(mod.data.toJSON());
   }
 
-  console.log('🔃 Déploiement (guild)…');
+  console.log('🔃 Déploiement des commandes (guild)…');
   await rest.put(
     Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID),
     { body: payload },
   );
-  console.log('✅ Commandes déployées (guild).');
+  console.log('✅ Déploiement terminé.');
 }
 
-// ---------- cycle de vie ----------
+// ---------- ÉVÉNEMENTS ----------
 client.once(Events.ClientReady, async (c) => {
-  console.log(`✅ Connecté comme ${c.user.tag}`);
+  console.log(`🚀 Connecté en tant que ${c.user.tag}`);
   await loadCommands();
 
-  // Active les handlers de logs
+  // 🧠 Active les listeners de logs
   registerLogHandlers(client);
+  console.log('🧩 Système de logs chargé.');
 
-  // Auto-déploiement (met AUTO_DEPLOY=false dans .env pour désactiver)
+  // ⚙️ Déploiement auto (désactivable via .env)
   if (process.env.AUTO_DEPLOY !== 'false') {
-    try { await deployGuildCommands(); } catch (e) { console.error('❌ Déploiement :', e); }
+    try {
+      await deployGuildCommands();
+    } catch (e) {
+      console.error('❌ Erreur de déploiement :', e);
+    }
   }
 });
 
+// ---------- GESTION DES INTERACTIONS ----------
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
-    // ✅ Boutons
+    // 🟢 Boutons
     if (interaction.isButton()) {
       const [prefix, ...parts] = interaction.customId.split(':');
       const handler = buttonHandlers.get(prefix);
-      if (!handler) return interaction.reply({ content: 'Interaction inconnue.', ephemeral: true });
+      if (!handler) return;
       return await handler(interaction, parts);
     }
 
-    // ✅ Menus déroulants (String Select)
+    // 🟢 Menus déroulants (select)
     if (interaction.isStringSelectMenu()) {
       const [prefix, ...parts] = interaction.customId.split(':');
       const handler = selectHandlers.get(prefix);
-      if (!handler) return interaction.reply({ content: 'Sélecteur inconnu.', ephemeral: true });
+      if (!handler) return;
       return await handler(interaction, parts);
     }
 
-    // ✅ Modals (pop-ups)
+    // 🟢 Modals
     if (interaction.isModalSubmit()) {
       const [prefix, ...parts] = interaction.customId.split(':');
       const handler = modalHandlers.get(prefix);
-      if (!handler) return interaction.reply({ content: 'Formulaire inconnu.', ephemeral: true });
+      if (!handler) return;
       return await handler(interaction, parts);
     }
 
-    // ✅ Slash commands
+    // 🟢 Slash Commands
     if (interaction.isChatInputCommand()) {
       const cmd = client.commands.get(interaction.commandName);
       if (!cmd) return;
-      return await cmd.execute(interaction);
+      await cmd.execute(interaction);
     }
   } catch (err) {
     console.error(err);
-    const msg = '❌ Oups, une erreur est survenue.';
-    if (interaction.deferred || interaction.replied) {
+    const msg = '❌ Une erreur est survenue.';
+    if (interaction.deferred || interaction.replied)
       await interaction.followUp({ content: msg, ephemeral: true }).catch(() => {});
-    } else {
+    else
       await interaction.reply({ content: msg, ephemeral: true }).catch(() => {});
-    }
   }
 });
 
+// ---------- CONNEXION ----------
 client.login(process.env.DISCORD_TOKEN);
