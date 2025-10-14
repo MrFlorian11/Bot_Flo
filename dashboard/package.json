@@ -1,0 +1,26 @@
+{
+  "type": "module",
+  "name": "dashboard",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "ejs": "^3.1.10",
+    "express": "^5.1.0",
+    "express-ejs-layouts": "^2.5.1",
+    "express-session": "^1.18.2",
+    "expresse": "^1.0.2",
+    "i": "^0.3.7",
+    "npm": "^11.6.2",
+    "passport": "^0.7.0",
+    "passport-discord": "^0.1.4"
+  }
+}

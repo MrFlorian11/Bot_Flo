@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Dashboard Bot</title>
+  <link rel="stylesheet" href="/public/style.css"/>
+</head>
+<body>
+  <header>
+    <h1>Bot Dashboard</h1>
+    <nav>
+      <% if (user) { %>
+        <span>Connecté en tant que <strong><%= user.username %></strong></span>
+        <a href="/dashboard">Mes serveurs</a>
+        <a href="/logout">Se déconnecter</a>
+      <% } else { %>
+        <a class="btn" href="/login">Se connecter avec Discord</a>
+      <% } %>
+    </nav>
+  </header>
+
+  <main>
+    <%- body %>
+  </main>
+
+  <footer>
+    <small>© <%= new Date().getFullYear() %> – Ton Bot</small>
+  </footer>
+</body>
+</html>

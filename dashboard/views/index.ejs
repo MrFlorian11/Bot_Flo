@@ -1,0 +1,25 @@
+<% layout('layout') -%>
+
+<h2>Mes serveurs</h2>
+
+<% if (!user) { %>
+  <p>Connecte-toi pour voir tes serveurs.</p>
+<% } else if (!guilds || guilds.length === 0) { %>
+  <p>Aucun serveur géré trouvé. Vérifie que tu as la permission <code>Gérer le serveur</code>.</p>
+<% } else { %>
+  <ul class="guilds">
+    <% guilds.forEach(g => { %>
+      <li>
+        <a class="card" href="/guild/<%= g.id %>">
+          <div class="icon" style="background:#5865F2">
+            <%= (g.icon ? '' : g.name[0].toUpperCase()) %>
+          </div>
+          <div class="meta">
+            <strong><%= g.name %></strong>
+            <code><%= g.id %></code>
+          </div>
+        </a>
+      </li>
+    <% }) %>
+  </ul>
+<% } %>
