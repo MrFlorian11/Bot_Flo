@@ -3,40 +3,49 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Dashboard Bot</title>
+  <title>Bot Dashboard</title>
   <link rel="stylesheet" href="/public/style.css"/>
 </head>
 <body>
-<header>
-  <h1>Bot Dashboard</h1>
-  <nav>
-    <% if (user) { %>
-      <span>Connecté en tant que <strong><%= user.username %></strong></span>
-      <a href="/dashboard">Mes serveurs</a>
-      <a href="/logout">Se déconnecter</a>
-    <% } else { %>
-      <a class="btn" href="/login">Se connecter avec Discord</a>
-    <% } %>
-  </nav>
+
+<header class="header">
+  <div class="header-inner">
+    <div class="brand">
+      <div class="logo"><span>⚙️</span></div>
+      <div>Bot Dashboard</div>
+    </div>
+
+    <div class="nav">
+      <% if (user) { %>
+        <div class="userpill">
+          <% if (user.avatar) { %>
+            <img src="https://cdn.discordapp.com/avatars/<%= user.id %>/<%= user.avatar %>.png?size=64" alt="">
+          <% } %>
+          <span class="name"><%= user.username %></span>
+        </div>
+        <a href="/logout">Se déconnecter</a>
+      <% } else { %>
+        <a class="btn primary" href="/login">Se connecter avec Discord</a>
+      <% } %>
+    </div>
+  </div>
 </header>
 
-<main>
-  <h2>Mes serveurs</h2>
+<div class="container">
+  <h1>Mes serveurs</h1>
 
   <% if (!user) { %>
-    <p>Connecte-toi pour voir tes serveurs.</p>
+    <div class="card"><p>Connecte-toi pour afficher et configurer tes serveurs.</p></div>
   <% } else if (!guilds || guilds.length === 0) { %>
-    <p>Aucun serveur géré trouvé. Vérifie que tu as la permission <code>Gérer le serveur</code>.</p>
+    <div class="alert warn">Aucun serveur géré trouvé. Vérifie que tu possèdes la permission <strong>Gérer le serveur</strong>.</div>
   <% } else { %>
     <ul class="guilds">
       <% guilds.forEach(g => { %>
         <li>
-          <a class="card" href="/guild/<%= g.id %>">
-            <div class="icon" style="background:#5865F2">
-              <%= (g.icon ? '' : g.name[0].toUpperCase()) %>
-            </div>
+          <a class="guild" href="/guild/<%= g.id %>">
+            <div class="icon"><%= (g.icon ? '' : g.name[0].toUpperCase()) %></div>
             <div class="meta">
-              <strong><%= g.name %></strong>
+              <div style="font-weight:700"><%= g.name %></div>
               <code><%= g.id %></code>
             </div>
           </a>
@@ -44,10 +53,8 @@
       <% }) %>
     </ul>
   <% } %>
-</main>
+</div>
 
-<footer>
-  <small>© <%= new Date().getFullYear() %> – Ton Bot</small>
-</footer>
+<footer>© <%= new Date().getFullYear() %> — Ton Bot</footer>
 </body>
 </html>

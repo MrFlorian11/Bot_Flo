@@ -1,64 +1,80 @@
-
 <!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Guild <%= guildId %> – Dashboard</title>
+  <title>Configuration — Guilde <%= guildId %></title>
   <link rel="stylesheet" href="/public/style.css"/>
 </head>
 <body>
-<header>
-  <h1>Bot Dashboard</h1>
-  <nav>
-    <a href="/dashboard">Mes serveurs</a>
-    <a href="/logout">Se déconnecter</a>
-  </nav>
+
+<header class="header">
+  <div class="header-inner">
+    <div class="brand">
+      <div class="logo"><span>🛠️</span></div>
+      <div>Bot Dashboard</div>
+    </div>
+    <div class="nav">
+      <a href="/dashboard">Mes serveurs</a>
+      <span class="sep">•</span>
+      <a href="/logout">Se déconnecter</a>
+      <div class="userpill">
+        <% if (user.avatar) { %>
+          <img src="https://cdn.discordapp.com/avatars/<%= user.id %>/<%= user.avatar %>.png?size=64" alt="">
+        <% } %>
+        <span class="name"><%= user.username %></span>
+      </div>
+    </div>
+  </div>
 </header>
 
-<main>
-  <h2>Configuration – Guilde <code><%= guildId %></code></h2>
+<div class="container">
+  <h1>Configuration – Guilde <code><%= guildId %></code></h1>
 
   <% if (saved) { %>
-    <p class="notice success">✅ Sauvegardé.</p>
+    <div class="alert success">✅ Sauvegardé.</div>
   <% } %>
 
   <form method="post" action="/guild/<%= guildId %>">
-    <section class="card">
-      <h3>Salon de logs</h3>
-      <p>
-        <label for="channelId">ID du salon :</label>
-        <input type="text" id="channelId" name="channelId" value="<%= cfg.channelId || '' %>" placeholder="ex: 123456789012345678" />
-      </p>
-      <p class="hint">Astuce : clic-droit sur un salon (mode développeur Discord activé) → Copier l’identifiant.</p>
-    </section>
+    <div class="grid-2">
+      <!-- Colonne gauche -->
+      <section class="card">
+        <h2>Salon de logs</h2>
+        <label for="channelId">ID du salon</label>
+        <input class="input" id="channelId" name="channelId" type="text"
+               value="<%= cfg.channelId || '' %>" placeholder="ex: 123456789012345678" />
+        <div class="help">Astuce : clic-droit sur un salon (mode développeur Discord activé) → Copier l’identifiant.</div>
+      </section>
 
-    <section class="card">
-      <h3>Catégories</h3>
-      <div class="grid">
-        <% cats.forEach(([key, label]) => { %>
-          <label class="toggle">
-            <input type="checkbox" name="cat_<%= key %>" <%= cfg.categories[key] !== false ? 'checked' : '' %> />
-            <span><%= label %></span>
-          </label>
-        <% }) %>
-      </div>
-    </section>
+      <!-- Colonne droite -->
+      <section class="card">
+        <h2>Catégories</h2>
+        <div style="display:grid; gap:10px;">
+          <% cats.forEach(([key, label]) => { %>
+            <label class="switch">
+              <span class="label"><%= label %></span>
+              <div>
+                <input class="toggle-input" type="checkbox" name="cat_<%= key %>" <%= cfg.categories[key] !== false ? 'checked' : '' %> />
+                <span class="toggle"></span>
+              </div>
+            </label>
+          <% }) %>
+        </div>
+      </section>
+    </div>
 
-    <p>
+    <div style="display:flex; gap:10px; margin-top:12px">
       <button class="btn primary" type="submit">💾 Enregistrer</button>
-      <a class="btn" href="/dashboard">← Retour</a>
-    </p>
+      <a class="btn ghost" href="/dashboard">← Retour</a>
+    </div>
   </form>
 
-  <section class="card">
-    <h3>Tester</h3>
+  <section class="card" style="margin-top:16px">
+    <h2>Tester</h2>
     <p>Dans Discord : <code>/logs test</code> pour envoyer un message de test dans le salon configuré.</p>
   </section>
-</main>
+</div>
 
-<footer>
-  <small>© <%= new Date().getFullYear() %> – Ton Bot</small>
-</footer>
+<footer>© <%= new Date().getFullYear() %> — Ton Bot</footer>
 </body>
 </html>

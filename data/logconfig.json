@@ -1,0 +1,20 @@
+{
+  "579934703105212416": {
+    "channelId": "1424426310217895957",
+    "categories": {
+      "message_delete": true,
+      "message_edit": true,
+      "message_bulk": true,
+      "member_join": true,
+      "member_leave": true,
+      "member_update": true,
+      "role_update": true,
+      "channel_update": true,
+      "voice": true,
+      "bans": true,
+      "threads": true,
+      "invites": true,
+      "reactions": true
+    }
+  }
+}
