@@ -37,16 +37,18 @@
 
   <form method="post" action="/guild/<%= guildId %>">
     <div class="grid-2">
-      <!-- Colonne gauche -->
+      <!-- Colonne gauche : salon -->
       <section class="card">
         <h2>Salon de logs</h2>
-        <label for="channelId">ID du salon</label>
-        <input class="input" id="channelId" name="channelId" type="text"
-               value="<%= cfg.channelId || '' %>" placeholder="ex: 123456789012345678" />
-        <div class="help">Astuce : clic-droit sur un salon (mode développeur Discord activé) → Copier l’identifiant.</div>
+
+        <label for="channelId">Salon de logs</label>
+        <select class="input" id="channelId" name="channelId">
+          <option value="">Chargement des salons...</option>
+        </select>
+        <div class="help">Choisis le salon où le bot enverra les logs.</div>
       </section>
 
-      <!-- Colonne droite -->
+      <!-- Colonne droite : catégories -->
       <section class="card">
         <h2>Catégories</h2>
         <div style="display:grid; gap:10px;">
@@ -74,6 +76,36 @@
     <p>Dans Discord : <code>/logs test</code> pour envoyer un message de test dans le salon configuré.</p>
   </section>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+  const select = document.getElementById('channelId');
+  const guildId = "<%= guildId %>";
+  const current = "<%= cfg.channelId || '' %>";
+
+  try {
+    const res = await fetch(`/api/guild/${guildId}/channels`);
+    const data = await res.json();
+    if (!data.ok) throw new Error('Échec API');
+
+    select.innerHTML = '';
+    data.channels.forEach(ch => {
+      const opt = document.createElement('option');
+      opt.value = ch.id;
+      opt.textContent = `#${ch.name}`;
+      if (current === ch.id) opt.selected = true;
+      select.appendChild(opt);
+    });
+
+    if (data.channels.length === 0) {
+      select.innerHTML = '<option value="">Aucun salon texte trouvé</option>';
+    }
+  } catch (err) {
+    console.error(err);
+    select.innerHTML = '<option value="">⚠️ Impossible de charger les salons</option>';
+  }
+});
+</script>
 
 <footer>© <%= new Date().getFullYear() %> — Ton Bot</footer>
 </body>

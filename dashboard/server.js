@@ -21,6 +21,9 @@ if (missing.length) {
   console.error('❌ Variables manquantes dans .env :', missing.join(', '));
   process.exit(1);
 }
+if (!process.env.DISCORD_BOT_TOKEN) {
+  console.warn('⚠️  DISCORD_BOT_TOKEN manquant : la liste déroulante des salons ne pourra pas se charger.');
+}
 
 const DATA_DIR = path.join(ROOT, 'data');
 const LOGCFG = path.join(DATA_DIR, 'logconfig.json');
@@ -85,7 +88,7 @@ function userCanManageGuild(userGuilds, guildId) {
   catch { return false; }
 }
 
-// Routes
+// ========== Routes pages ==========
 app.get('/', (req, res) => res.render('index', { user: req.user, guilds: null }));
 
 app.get('/login', passport.authenticate('discord', { scope: scopes }));
@@ -140,6 +143,36 @@ app.post('/guild/:id', requireAuth, (req, res) => {
   res.redirect(`/guild/${guildId}?saved=1`);
 });
 
+// ========== API : liste des salons textuels ==========
+app.get('/api/guild/:id/channels', requireAuth, async (req, res) => {
+  const guildId = req.params.id;
+  if (!userCanManageGuild(req.user.guilds, guildId))
+    return res.status(403).json({ error: 'Accès refusé.' });
+
+  if (!process.env.DISCORD_BOT_TOKEN) {
+    return res.status(500).json({ ok: false, error: 'Bot token manquant.' });
+  }
+
+  try {
+    const response = await fetch(`https://discord.com/api/v10/guilds/${guildId}/channels`, {
+      headers: { Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}` },
+    });
+
+    if (!response.ok) throw new Error('Erreur API Discord');
+
+    const data = await response.json();
+    const channels = data
+      .filter(ch => ch.type === 0) // GUILD_TEXT
+      .map(ch => ({ id: ch.id, name: ch.name }));
+
+    res.json({ ok: true, channels });
+  } catch (err) {
+    console.error('Erreur récupération salons:', err);
+    res.status(500).json({ ok: false, error: 'Erreur lors de la récupération des salons.' });
+  }
+});
+
+// Santé
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
 const PORT = Number(process.env.DASHBOARD_PORT || 3000);
