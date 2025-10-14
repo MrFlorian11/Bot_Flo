@@ -1,2 +1,25 @@
-node_modules
+# === ⚙️ Fichiers sensibles ===
 .env
+.env.*
+data/*.json
+
+# === 🧱 Dépendances ===
+node_modules/
+dashboard/node_modules/
+
+# === 🪣 Logs & caches ===
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+logs/
+tmp/
+dist/
+build/
+
+# === 💻 Environnement local ===
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
