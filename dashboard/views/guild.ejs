@@ -1,42 +1,64 @@
-<% layout('layout') -%>
 
-<h2>Configuration – Guilde <code><%= guildId %></code></h2>
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Guild <%= guildId %> – Dashboard</title>
+  <link rel="stylesheet" href="/public/style.css"/>
+</head>
+<body>
+<header>
+  <h1>Bot Dashboard</h1>
+  <nav>
+    <a href="/dashboard">Mes serveurs</a>
+    <a href="/logout">Se déconnecter</a>
+  </nav>
+</header>
 
-<% if (typeof query !== 'undefined' && query.saved) { %>
-  <p class="notice success">✅ Sauvegardé.</p>
-<% } %>
+<main>
+  <h2>Configuration – Guilde <code><%= guildId %></code></h2>
 
-<form method="post" action="/guild/<%= guildId %>">
-  <section class="card">
-    <h3>Salon de logs</h3>
+  <% if (saved) { %>
+    <p class="notice success">✅ Sauvegardé.</p>
+  <% } %>
+
+  <form method="post" action="/guild/<%= guildId %>">
+    <section class="card">
+      <h3>Salon de logs</h3>
+      <p>
+        <label for="channelId">ID du salon :</label>
+        <input type="text" id="channelId" name="channelId" value="<%= cfg.channelId || '' %>" placeholder="ex: 123456789012345678" />
+      </p>
+      <p class="hint">Astuce : clic-droit sur un salon (mode développeur Discord activé) → Copier l’identifiant.</p>
+    </section>
+
+    <section class="card">
+      <h3>Catégories</h3>
+      <div class="grid">
+        <% cats.forEach(([key, label]) => { %>
+          <label class="toggle">
+            <input type="checkbox" name="cat_<%= key %>" <%= cfg.categories[key] !== false ? 'checked' : '' %> />
+            <span><%= label %></span>
+          </label>
+        <% }) %>
+      </div>
+    </section>
+
     <p>
-      <label for="channelId">ID du salon :</label>
-      <input type="text" id="channelId" name="channelId" value="<%= cfg.channelId || '' %>" placeholder="ex: 123456789012345678" />
+      <button class="btn primary" type="submit">💾 Enregistrer</button>
+      <a class="btn" href="/dashboard">← Retour</a>
     </p>
-    <p class="hint">
-      Astuce : fais clic-droit sur un salon (mode développeur Discord activé) → Copier l’identifiant.
-    </p>
-  </section>
+  </form>
 
   <section class="card">
-    <h3>Catégories</h3>
-    <div class="grid">
-      <% cats.forEach(([key, label]) => { %>
-        <label class="toggle">
-          <input type="checkbox" name="cat_<%= key %>" <%= cfg.categories[key] !== false ? 'checked' : '' %> />
-          <span><%= label %></span>
-        </label>
-      <% }) %>
-    </div>
+    <h3>Tester</h3>
+    <p>Dans Discord : <code>/logs test</code> pour envoyer un message de test dans le salon configuré.</p>
   </section>
+</main>
 
-  <p>
-    <button class="btn primary" type="submit">💾 Enregistrer</button>
-    <a class="btn" href="/dashboard">← Retour</a>
-  </p>
-</form>
-
-<section class="card">
-  <h3>Tester</h3>
-  <p>Utilise la commande <code>/logs test</code> dans Discord pour envoyer un message de test dans le salon configuré.</p>
-</section>
+<footer>
+  <small>© <%= new Date().getFullYear() %> – Ton Bot</small>
+</footer>
+</body>
+</html>
