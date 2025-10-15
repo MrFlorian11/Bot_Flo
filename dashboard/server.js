@@ -7,8 +7,9 @@ import { Strategy as DiscordStrategy } from 'passport-discord';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
-import RedisStoreLib from 'connect-redis';
-import Redis from 'ioredis';
+import session from 'express-session';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
 
 // ========== Chemins & Configuration ==========
 const __filename = fileURLToPath(import.meta.url);
@@ -16,6 +17,8 @@ const __dirname = path.dirname(__filename);
 const ROOT = path.join(__dirname, '..');
 const redisClient = new Redis(process.env.REDIS_URL || 'redis://127.0.0.1:6379');
 const RedisStore = RedisStoreLib(session);
+const connectRedis = require('connect-redis'); 
+const IORedis = require('ioredis'); 
 
 dotenv.config({ path: path.join(ROOT, '.env') });
 
@@ -31,6 +34,7 @@ if (!process.env.DISCORD_BOT_TOKEN) {
 
 const DATA_DIR = path.join(ROOT, 'data');
 const LOGCFG = path.join(DATA_DIR, 'logconfig.json');
+
 
 // ========== Utils ==========
 function ensureData() {
@@ -73,12 +77,15 @@ app.use('/public', express.static(path.join(__dirname, 'public')));
 app.use(express.urlencoded({ extended: true }));
 
 app.use(session({
-  store: new RedisStore({ client: redisClient, prefix: 'dash:' }),
+  store: new RedisStore({
+    client: redisClient,
+    prefix: 'dash:',            // préfixe des clés dans Redis
+  }),
   secret: process.env.SESSION_SECRET || 'change_me_secret',
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: false,      // passe à true si tu es derrière HTTPS
+    secure: false,              // mets true si tu es derrière HTTPS
     httpOnly: true,
     sameSite: 'lax',
     maxAge: 1000 * 60 * 60 * 24 * 7, // 7 jours
