@@ -10,7 +10,9 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fetch from 'node-fetch';
-import { createRequire } from 'module';
+
+import RedisStore from 'connect-redis';
+import { createClient } from 'redis';
 const require = createRequire(import.meta.url);
 
 // ==============================
@@ -29,30 +31,29 @@ const PORT = process.env.DASHBOARD_PORT || 3000;
 // ==============================
 // 🧠 SESSION REDIS
 // ==============================
-const RedisStoreFactory = require('connect-redis'); // CommonJS
-const Redis = require('ioredis');                   // CommonJS
+// ----- Session + Redis (connect-redis v7 + redis v4) -----
+const redisClient = createClient({
+  url: process.env.REDIS_URL || 'redis://127.0.0.1:6379',
+});
+redisClient.on('error', (err) => console.error('[Redis] Error', err));
+await redisClient.connect(); // (ESM / Node 20+ : OK)
 
-// Crée le client Redis
-const redisClient = new Redis(process.env.REDIS_URL || 'redis://127.0.0.1:6379');
-const RedisStore = RedisStoreFactory(session);
+app.use(session({
+  store: new RedisStore({
+    client: redisClient,
+    prefix: 'dash:',
+  }),
+  secret: process.env.SESSION_SECRET || 'change_me_secret',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: false,          // mets true si tu es en HTTPS derrière un proxy
+    httpOnly: true,
+    sameSite: 'lax',
+    maxAge: 1000 * 60 * 60 * 24 * 7, // 7 jours
+  },
+}));
 
-app.use(
-  session({
-    store: new RedisStore({
-      client: redisClient,
-      prefix: 'dash:',
-    }),
-    secret: process.env.SESSION_SECRET || 'change_me_secret',
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      secure: false, // true si HTTPS
-      httpOnly: true,
-      sameSite: 'lax',
-      maxAge: 1000 * 60 * 60 * 24 * 7, // 7 jours
-    },
-  })
-);
 
 // ==============================
 // 🔑 AUTH DISCORD (PASSPORT)
