@@ -11,6 +11,8 @@ import fetch from 'node-fetch';
 import RedisStore from 'connect-redis';
 import { createClient } from 'redis';
 
+console.log('### DASHBOARD BUILD v2 (ESM + redis@4 + connect-redis@7) ###');
+
 // ---------- chemins / .env ----------
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
