@@ -127,21 +127,33 @@ export function registerLogHandlers(client) {
   });
 
   // ---- Voix ----
-  client.on(Events.VoiceStateUpdate, async (oldS, newS) => {
-    const guild = newS.guild;
-    if (!canLog(guild.id, 'voice')) return;
+client.on(Events.VoiceStateUpdate, async (oldS, newS) => {
+  const guild = newS.guild;
+  if (!canLog(guild.id, 'voice')) return;
 
-    const user = await guild.members.fetch(newS.id).catch(() => null) || { user: newS.member?.user };
-    let text = null;
-    if (!oldS.channelId && newS.channelId) text = `🔊 **rejoint** ${channelMention(newS.channelId)}`;
-    else if (oldS.channelId && !newS.channelId) text = `🔇 **quitte** ${channelMention(oldS.channelId)}`;
-    else if (oldS.channelId && newS.channelId && oldS.channelId !== newS.channelId) text = `🔁 **passe** ${channelMention(oldS.channelId)} → ${channelMention(newS.channelId)}`;
+  // ✅ Ignore tous les events où le salon n'a pas changé (mute, unmute, cam, stream, etc.)
+  if (oldS.channelId === newS.channelId) return;
 
-    if (text) {
-      const eb = baseEmbed(user.user, '🎙️ Activité vocale').setDescription(`${user} ${text}`);
-      await sendLog(guild, eb, 'info');
-    }
-  });
+  const user = await guild.members.fetch(newS.id).catch(() => null) || { user: newS.member?.user };
+  let text = null;
+
+  // ✅ Change détecté, on loggue proprement
+  if (!oldS.channelId && newS.channelId) {
+    text = `🔊 **rejoint** ${channelMention(newS.channelId)}`;
+  } 
+  else if (oldS.channelId && !newS.channelId) {
+    text = `🔇 **quitte** ${channelMention(oldS.channelId)}`;
+  } 
+  else if (oldS.channelId && newS.channelId && oldS.channelId !== newS.channelId) {
+    text = `🔁 **passe** ${channelMention(oldS.channelId)} → ${channelMention(newS.channelId)}`;
+  }
+
+  if (text) {
+    const eb = baseEmbed(user.user, '🎙️ Activité vocale').setDescription(`${user} ${text}`);
+    await sendLog(guild, eb, 'info');
+  }
+});
+
 
   // ---- Bans ----
   client.on(Events.GuildBanAdd, async (ban) => {
